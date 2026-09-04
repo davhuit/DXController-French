@@ -34,8 +34,8 @@ function Parse-TagInts {
     return $ints
 }
 
-$ints = @(0, 0, 0, 0)
-$displayStr = 'dev-untagged'
+$ints = @(1, 5, 1, 0)
+$displayStr = 'Davhuit'
 
 if ($env:LAUNCHER_VERSION) {
     # Explicit override (CI sets this from github.ref_name on tag builds).
