@@ -12,9 +12,7 @@ curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix 
 
 Visual Studio Build Tools (côté Windows)
 
-Télécharge depuis https://visualstudio.microsoft.com/fr/downloads/ → "Build Tools pour Visual Studio" → coche "Développement Desktop en C++".
-
-Redémarre si demandé. Vérifie ensuite (dans "Activer ou désactiver des fonctionnalités Windows") que "Sous-système Windows pour Linux" et "Plateforme de machine virtuelle" (ou "Plateforme d'ordinateur virtuel") sont bien cochées, sinon coche-les et redémarre.
+Télécharge depuis https://visualstudio.microsoft.com/fr/downloads/ → "Build Tools pour Visual Studio" → coche "Développement Desktop en C++". Redémarre si demandé. Vérifie ensuite (dans "Activer ou désactiver des fonctionnalités Windows") que "Sous-système Windows pour Linux" et "Plateforme de machine virtuelle" (ou "Plateforme d'ordinateur virtuel") sont bien cochées, sinon coche-les et redémarre.
 
 Une fois Ubuntu installé, crée ton nom d'utilisateur/mot de passe Linux quand demandé.
 
