@@ -4,8 +4,8 @@
 # 1. Cloner les deux dépôts
 mkdir -p /mnt/c/dev
 cd /mnt/c/dev
-git clone [https://github.com/davhuit/DxController-Davhuit.git](https://github.com/davhuit/DxController-Davhuit.git)
-git clone [https://github.com/davhuit/DeusEx-BuildTools-Davhuit.git](https://github.com/davhuit/DeusEx-BuildTools-Davhuit.git)
+git clone https://github.com/davhuit/DxController-Davhuit.git
+git clone https://github.com/davhuit/DeusEx-BuildTools-Davhuit.git
 
 # 2. Relier gamedir
 cd /mnt/c/dev/DxController-Davhuit
