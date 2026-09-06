@@ -13,7 +13,7 @@ from the original, unmodified `DeusEx.u`. The two are incompatible: with both in
 the game refuses to launch with an error like
 
 ```
-Ne peut trouver BoolProperty dans le fichier 'BoolProperty DeusEx.DeusExPlayer.bGamepadLBHeld'
+Can't find BoolProperty in file 'BoolProperty DeusEx.DeusExPlayer.bGamepadLBHeld'
 ```
 
 because the French `DeusEx.frt_u` doesn't know about the extra properties DXController adds
