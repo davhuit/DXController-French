@@ -408,33 +408,35 @@ function RefreshWindow(float DeltaTime)
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     SkillsTitleText="Skills"
-     UpgradeButtonLabel="|&Upgrade"
-     PointsNeededHeaderText="Points Needed"
-     SkillLevelHeaderText="Skill Level"
-     SkillPointsHeaderText="Skill Points"
-     SkillUpgradedLevelLabel="%s upgraded"
-     clientBorderOffsetY=33
-     ClientWidth=604
-     ClientHeight=361
-     clientOffsetX=19
-     clientOffsetY=12
-     clientTextures(0)=Texture'DeusExUI.UserInterface.SkillsBackground_1'
-     clientTextures(1)=Texture'DeusExUI.UserInterface.SkillsBackground_2'
-     clientTextures(2)=Texture'DeusExUI.UserInterface.SkillsBackground_3'
-     clientTextures(3)=Texture'DeusExUI.UserInterface.SkillsBackground_4'
-     clientTextures(4)=Texture'DeusExUI.UserInterface.SkillsBackground_5'
-     clientTextures(5)=Texture'DeusExUI.UserInterface.SkillsBackground_6'
-     clientBorderTextures(0)=Texture'DeusExUI.UserInterface.SkillsBorder_1'
-     clientBorderTextures(1)=Texture'DeusExUI.UserInterface.SkillsBorder_2'
-     clientBorderTextures(2)=Texture'DeusExUI.UserInterface.SkillsBorder_3'
-     clientBorderTextures(3)=Texture'DeusExUI.UserInterface.SkillsBorder_4'
-     clientBorderTextures(4)=Texture'DeusExUI.UserInterface.SkillsBorder_5'
-     clientBorderTextures(5)=Texture'DeusExUI.UserInterface.SkillsBorder_6'
-     clientTextureRows=2
-     clientTextureCols=3
-     clientBorderTextureRows=2
-     clientBorderTextureCols=3
+    SkillsTitleText="Skills"
+    UpgradeButtonLabel="|&Upgrade"
+    PointsNeededHeaderText="Points Needed"
+    SkillLevelHeaderText="Skill Level"
+    SkillPointsHeaderText="Skill Points"
+    SkillUpgradedLevelLabel="%s upgraded"
+    clientBorderOffsetY=33
+    ClientWidth=604
+    ClientHeight=361
+    clientOffsetX=19
+    clientOffsetY=12
+    clientTextures(0)=Texture'DeusExUI.UserInterface.SkillsBackground_1'
+    clientTextures(1)=Texture'DeusExUI.UserInterface.SkillsBackground_2'
+    clientTextures(2)=Texture'DeusExUI.UserInterface.SkillsBackground_3'
+    clientTextures(3)=Texture'DeusExUI.UserInterface.SkillsBackground_4'
+    clientTextures(4)=Texture'DeusExUI.UserInterface.SkillsBackground_5'
+    clientTextures(5)=Texture'DeusExUI.UserInterface.SkillsBackground_6'
+    clientBorderTextures(0)=Texture'DeusExUI.UserInterface.SkillsBorder_1'
+    clientBorderTextures(1)=Texture'DeusExUI.UserInterface.SkillsBorder_2'
+    clientBorderTextures(2)=Texture'DeusExUI.UserInterface.SkillsBorder_3'
+    clientBorderTextures(3)=Texture'DeusExUI.UserInterface.SkillsBorder_4'
+    clientBorderTextures(4)=Texture'DeusExUI.UserInterface.SkillsBorder_5'
+    clientBorderTextures(5)=Texture'DeusExUI.UserInterface.SkillsBorder_6'
+    clientTextureRows=2
+    clientTextureCols=3
+    clientBorderTextureRows=2
+    clientBorderTextureCols=3
 }

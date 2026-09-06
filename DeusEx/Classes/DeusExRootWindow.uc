@@ -160,7 +160,6 @@ event bool VirtualKeyPressed(EInputKey key, bool bRepeat)
 				$ " ctrl=" $ IsKeyDown(IK_Ctrl));
 		return False;
 	}
-
 	// When player dies in multiplayer...
 	if ((Player != None) && (Player.Health <= 0) && (Player.Level.NetMode != NM_Standalone))
 	{
@@ -1133,23 +1132,26 @@ function PreTravelNotify()
 }
 // === DXController additions: END ===
 
+
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     MaxWinStack=6
-     colSnapshot=(R=128,G=128,B=128)
-     snapshotWidth=256.000000
-     snapshotHeight=192.000000
-     DataVaultFunctions(0)=(Function="ShowInventoryWindow",winClass=Class'DeusEx.PersonaScreenInventory')
-     DataVaultFunctions(1)=(Function="ShowHealthWindow",winClass=Class'DeusEx.PersonaScreenHealth')
-     DataVaultFunctions(2)=(Function="ShowAugmentationsWindow",winClass=Class'DeusEx.PersonaScreenAugmentations')
-     DataVaultFunctions(3)=(Function="ShowSkillsWindow",winClass=Class'DeusEx.PersonaScreenSkills')
-     DataVaultFunctions(4)=(Function="ShowGoalsWindow",winClass=Class'DeusEx.PersonaScreenGoals')
-     DataVaultFunctions(5)=(Function="ShowConversationsWindow",winClass=Class'DeusEx.PersonaScreenConversations')
-     DataVaultFunctions(6)=(Function="ShowImagesWindow",winClass=Class'DeusEx.PersonaScreenImages')
-     DataVaultFunctions(7)=(Function="ShowLogsWindow",winClass=Class'DeusEx.PersonaScreenLogs')
-     QuickLoadTitle="Quick Load?"
-     QuickLoadMessage="You will lose your current game in progress, are you sure you wish to Quick Load?"
+    MaxWinStack=6
+    colSnapshot=(R=128,G=128,B=128,A=0)
+    snapshotWidth=256.0000000
+    snapshotHeight=192.0000000
+    DataVaultFunctions(0)=(Function="ShowInventoryWindow",winClass=Class'DeusEx.PersonaScreenInventory')
+    DataVaultFunctions(1)=(Function="ShowHealthWindow",winClass=Class'DeusEx.PersonaScreenHealth')
+    DataVaultFunctions(2)=(Function="ShowAugmentationsWindow",winClass=Class'DeusEx.PersonaScreenAugmentations')
+    DataVaultFunctions(3)=(Function="ShowSkillsWindow",winClass=Class'DeusEx.PersonaScreenSkills')
+    DataVaultFunctions(4)=(Function="ShowGoalsWindow",winClass=Class'DeusEx.PersonaScreenGoals')
+    DataVaultFunctions(5)=(Function="ShowConversationsWindow",winClass=Class'DeusEx.PersonaScreenConversations')
+    DataVaultFunctions(6)=(Function="ShowImagesWindow",winClass=Class'DeusEx.PersonaScreenImages')
+    DataVaultFunctions(7)=(Function="ShowLogsWindow",winClass=Class'DeusEx.PersonaScreenLogs')
+	QuickLoadTitle="Quick Load?"
+    QuickLoadMessage="You will lose your current game in progress, are you sure you wish to Quick Load?"
 }

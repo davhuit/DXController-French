@@ -35,7 +35,7 @@ function Parse-TagInts {
 }
 
 $ints = @(1, 5, 1, 0)
-$displayStr = 'Davhuit 1.5.1'
+$displayStr = 'Davhuit FR 1.5.1'
 
 if ($env:LAUNCHER_VERSION) {
     # Explicit override (CI sets this from github.ref_name on tag builds).

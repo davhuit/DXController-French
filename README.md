@@ -1,41 +1,69 @@
-```bash
-# Prérequis (une fois par PC) : WSL2 + Ubuntu, Nix, Git, Visual Studio Build Tools (avec "Développement Desktop en C++")
+# DXController-French
 
-Activer WSL (PowerShell/cmd en Administrateur)
-wsl --install -d Ubuntu
+*[English version](README.en.md)*
 
-Outils dans WSL
-sudo apt update && sudo apt install -y git rsync dos2unix unzip
+Version compatible FR de [DXController](https://github.com/dsgls/DXController), le mod
+manette Xbox pour *Deus Ex* original (2000, édition GOTY).
 
-Nix
-curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+## Le problème résolu
 
-Visual Studio Build Tools (côté Windows)
+DXController s'appuie sur une version modifiée de `DeusEx.u`. Le patch de traduction
+française officiel fournit son propre `DeusEx.frt_u` (mécanisme de localisation par langue
+d'Unreal Engine 1), compilé à partir du `DeusEx.u` d'origine, non modifié. Les deux sont
+incompatibles : avec les deux installés, le jeu refuse de se lancer avec une erreur du type
 
-Télécharge depuis https://visualstudio.microsoft.com/fr/downloads/ → "Build Tools pour Visual Studio"
-→ coche "Développement Desktop en C++". Redémarre si demandé. Vérifie ensuite (dans "Activer
-ou désactiver des fonctionnalités Windows") que "Sous-système Windows pour Linux" et "Plateforme de
-machine virtuelle" (ou "Plateforme d'ordinateur virtuel") sont bien cochées, sinon coche-les et redémarre.
+```
+Ne peut trouver BoolProperty dans le fichier 'BoolProperty DeusEx.DeusExPlayer.bGamepadLBHeld'
+```
 
-Une fois Ubuntu installé, crée ton nom d'utilisateur/mot de passe Linux quand demandé.
+parce que le `DeusEx.frt_u` français ne connaît pas les propriétés supplémentaires ajoutées
+par DXController dans plusieurs classes.
 
-# 1. Cloner les deux dépôts
-mkdir -p /mnt/c/dev
-cd /mnt/c/dev
-git clone https://github.com/davhuit/DxController-Davhuit.git
-git clone https://github.com/davhuit/DeusEx-BuildTools-Davhuit.git
+Ce dépôt fournit un `DeusEx.frt_u` qui contient à la fois le texte français **et** les
+ajouts de DXController, pour pouvoir utiliser le mod manette et la traduction française
+officielle ensemble.
 
-# 2. Relier gamedir
-cd /mnt/c/dev/DxController-Davhuit
-rm -f gamedir
-ln -s /mnt/c/dev/DeusEx-BuildTools-Davhuit gamedir
+## Téléchargement
 
-# 3. Localiser MSBuild (depuis cmd.exe)
-dir /s /b "C:\Program Files (x86)\Microsoft Visual Studio\*MSBuild.exe" 2>nul
+Récupérez la dernière [release](../../releases) : elle contient les fichiers déjà
+compilés (`DeusEx.u`, `DXController.u`, `DeusEx.frt_u`, `DeusEx.exe`, `SDL3.dll`), prêts à
+copier dans le jeu.
 
-# 4. Build
-export MSBUILD="/mnt/c/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/MSBuild.exe"
-nix run .#sync-and-build
+## Prérequis
 
-# 5. Installer dans le jeu
-cp gamedir/System/DeusEx.u gamedir/System/DXController.u gamedir/System/DeusEx.exe gamedir/System/SDL3.dll "/mnt/c/Program Files (x86)/Steam/steamapps/common/Deus Ex/System/"
+- *Deus Ex: Game of the Year Edition* (version GOG ou Steam standard)
+- [Le patch de traduction française officiel](https://www.dxm.be/navigator.php5?lang=fr&content=201), installé
+
+## Installation
+
+1. Installez le jeu, puis le patch de traduction française officiel, comme d'habitude.
+2. Copiez les fichiers de la release dans le dossier `System` du jeu, en écrasant les
+   fichiers existants du même nom.
+
+## Ce qui a été modifié
+
+9 classes touchées par DXController ont été fusionnées avec le texte français
+(ComputerScreenSecurity, ComputerUIWindow, ConWindowActive, DeusExPlayer, DeusExRootWindow,
+Human, MenuScreenLoadGame, MenuSettings, PersonaScreenSkills) ; voir les sources pour le
+détail.
+
+## Développement
+
+Voir [`development.md`](development.md) pour l'organisation du dépôt et les instructions de
+build — l'installation reprend celle du dépôt DXController d'origine (WSL2 + Ubuntu, Nix,
+`nix run .#sync-and-build`), associée à un dépôt
+[DeusEx-Buildtools-French](../DeusEx-Buildtools-French) contenant les fichiers du jeu
+nécessaires au build, relié par un lien symbolique `gamedir`.
+
+## Crédits
+
+Tout le mérite du mod manette revient à
+[dsgls/DXController](https://github.com/dsgls/DXController). Ce dépôt ne fait qu'ajouter la
+compatibilité avec la traduction française par-dessus.
+
+## Licence
+
+GPLv3+
+
+Les fichiers modifiés à partir du jeu d'origine restent la propriété d'Ion Storm et aucune
+revendication de licence n'est faite dessus.
