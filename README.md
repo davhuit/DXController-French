@@ -26,7 +26,7 @@ officielle ensemble.
 ## Téléchargement
 
 Récupérez la dernière [release](../../releases) : elle contient les fichiers déjà
-compilés (`DeusEx.u`, `DXController.u`, `DeusEx.frt_u`, `DeusEx.exe`, `SDL3.dll`), prêts à
+compilés (`DeusEx.frt_u`, `DXController.u`, `DeusEx.frt_u`, `DeusEx.exe`, `SDL3.dll`), prêts à
 copier dans le jeu.
 
 ## Prérequis
@@ -37,8 +37,7 @@ copier dans le jeu.
 ## Installation
 
 1. Installez le jeu, puis le patch de traduction française officiel, comme d'habitude.
-2. Copiez les fichiers de la release dans le dossier `System` du jeu, en écrasant les
-   fichiers existants du même nom.
+2. Extraire l'archive ZIP dans le dossier System du jeu, en écrasant les fichiers existants du même nom.
 
 ## Ce qui a été modifié
 
