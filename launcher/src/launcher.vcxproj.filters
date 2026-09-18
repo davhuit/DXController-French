@@ -75,6 +75,12 @@
     <ClCompile Include="CrashRecord.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="CrashContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LevelWatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LogTime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -108,7 +114,7 @@
     <ClCompile Include="NativeHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="WinDrvPatch.cpp">
+    <ClCompile Include="BytePatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FreeSpaceFix.cpp">
@@ -170,6 +176,15 @@
     <ClInclude Include="CrashRecord.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CrashContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LevelWatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FeedbackContextLog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="LogTime.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -209,7 +224,10 @@
     <ClInclude Include="OutputDeviceFileFlush.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="WinDrvPatch.h">
+    <ClInclude Include="BytePatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BytePatchSites.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FreeSpaceFix.h">

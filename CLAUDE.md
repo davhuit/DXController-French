@@ -45,6 +45,18 @@ commit. The line-ending conversion is the one allowed deviation from
 "verbatim" — it keeps the diff against upstream showing exactly our
 delta.
 
+## Launcher tests
+
+`launcher/tests/` is a doctest suite over the launcher's pure-unit layer
+(see development.md for what belongs there and how to add a unit).
+`build.ps1`, `launcher/build.sh` and `nix run .#sync-and-build` all run it
+and fail on a red test, so any one tells you whether the launcher is
+good. To re-run the tests alone without rebuilding:
+`launcher/tests/Release/tests.exe`.
+
+Adding a source or test file needs an explicit `.vcxproj` (+ `.filters`)
+entry — nothing is globbed.
+
 ## Keep the documentation current
 
 Three files document this project; each has a specific scope. Update
@@ -84,7 +96,7 @@ Y then waits for Z then frobs the fizz" is useless verbosity.
 
 **User-owned native code:** the launcher executable and its gamepad
 backend in `launcher/`, plus the runtime byte patches it applies to
-`WinDrv.dll` at startup (`launcher/src/WinDrvPatch.cpp`). Fixed at the
+stock DLLs at startup (`launcher/src/BytePatch.cpp`). Fixed at the
 source.
 
 **Stock native code:** `Engine.dll`, `Core.dll`, `Extension.dll`

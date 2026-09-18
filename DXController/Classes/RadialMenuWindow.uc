@@ -70,6 +70,10 @@ var int   lastFocusedSlot;
 // never started this open-cycle.
 var float lastFocusTime;
 
+// Diagnostic: set by Open, cleared by the next DrawWindow, so the root
+// child order is logged once at paint time as well as at Open.
+var bool  bLogOrderOnDraw;
+
 function Open(int newMode, optional Inventory item, optional bool bStickyMode, optional Window sourceScreen)
 {
     if (bOpen)
@@ -92,10 +96,40 @@ function Open(int newMode, optional Inventory item, optional bool bStickyMode, o
     // the wheel ghosts through the screen's translucent background. Same
     // pattern as OnScreenKeyboardWindow.Open and the focus/hint overlays.
     Raise();
+    LogRootOrder("open");
+    bLogOrderOnDraw = true;
 
     if (mode == WM_Aug)
         PopulateAugSlots();
     class'DXControllerDebug'.static.NavLog("DXC-WHEEL OPEN mode=" $ string(newMode));
+}
+
+// Diagnostic (bNavDebugLog): dump the root's direct children top-down.
+// The wheel must be the first entry to paint above a pushed persona
+// screen. `*` marks this window.
+function LogRootOrder(string when)
+{
+    local Window w, root;
+    local string line;
+    local int n;
+
+    root = GetParent();
+    if (root == None)
+        return;
+    w = root.GetTopChild();
+    while (w != None && n < 16)
+    {
+        if (line != "")
+            line = line $ " > ";
+        line = line $ string(w.Class);
+        if (w == Self)
+            line = line $ "*";
+        if (!w.IsVisible())
+            line = line $ "(hidden)";
+        w = w.GetLowerSibling();
+        n++;
+    }
+    class'DXControllerDebug'.static.NavLog("DXC-WHEEL ZORDER " $ when $ " top>bottom: " $ line);
 }
 
 function PopulateAugSlots()
@@ -386,6 +420,12 @@ event DrawWindow(GC gc)
     if (root == None)
         return;
 
+    if (bLogOrderOnDraw)
+    {
+        bLogOrderOnDraw = false;
+        LogRootOrder("first-draw");
+    }
+
     cx = width  * 0.5;
     cy = height * 0.5;
 
@@ -435,8 +475,24 @@ event DrawWindow(GC gc)
 // Drawn with the inherited backgroundDrawStyle, tinted with the HUD
 // theme's background colour — additive translucent by default, masked
 // opaque when the player turns HUD translucency off.
+//
+// Sticky mode opens over a persona screen, whose bright background an
+// additive plate cannot cover — the screen reads as if it were drawn on
+// top of the wheel. Darken the plate's own footprint first with WheelVeil
+// (DSTY_Modulated, x0.25 inside the cells, identity elsewhere). Skipped
+// in gameplay, where the additive plate over the dark scene is the
+// intended look, and when the plate is masked (it covers outright).
 function DrawBackplate(GC gc, float cx, float cy)
 {
+    if (bSticky && backgroundDrawStyle == DSTY_Translucent)
+    {
+        gc.SetStyle(DSTY_Modulated);
+        gc.DrawStretchedTexture(cx - PlateDiameter * 0.5, cy - PlateDiameter * 0.5,
+                                PlateDiameter, PlateDiameter,
+                                0, 0, PlateTexSize, PlateTexSize,
+                                Texture'DXController.WheelVeil');
+    }
+
     gc.SetStyle(backgroundDrawStyle);
     gc.SetTileColor(colBackground);
     gc.DrawStretchedTexture(cx - PlateDiameter * 0.5, cy - PlateDiameter * 0.5,

@@ -7,10 +7,13 @@
 #include "Fixapp.h"
 #include "ExecHook.h"
 #include "NativeHooks.h"
-#include "WinDrvPatch.h"
+#include "BytePatch.h"
 #include "OutputDeviceFileFlush.h"
 #include "CursorPolicy.h"
 #include "CrashRecord.h"
+#include "CrashContext.h"
+#include "FeedbackContextLog.h"
+#include "LevelWatch.h"
 #include "FramePacing.h"
 #include "LogPath.h"
 #include "StartupHeader.h"
@@ -37,15 +40,22 @@ namespace
     //reboot - Windows reclaims per-process cursor state on exit, but a fullscreen
     //app that dies mid-clip can wedge the session's cursor first.
     //
-    //ShowCursor moves a per-process display counter by +-1 per call, so the state
-    //that has to be undone is the NET delta this process applied, not a boolean.
-    //The state is static and the release is a static function because the
-    //unhandled-exception filter has to run it from a crashed context where no
-    //destructor will.
+    //ShowCursor moves a per-thread display counter by +-1 per call and returns
+    //the new value; the cursor draws over this thread's windows while it is
+    //>= 0. That return value is the only trustworthy view of the counter:
+    //GetCursorInfo's CURSOR_SHOWING belongs to whichever thread's window last
+    //received the cursor, so it disagrees with our counter whenever the mouse
+    //has not moved over the game window since a focus change - and stepping
+    //the counter against it once per frame ran it away by thousands. The state
+    //that has to be undone on exit is the NET delta this code applied, not a
+    //boolean. The state is static and the release is a static function because
+    //the unhandled-exception filter has to run it from a crashed context where
+    //no destructor will.
     class CCursorGuard
     {
     public:
-        CCursorGuard() { assert(!s_bLive); s_bLive = true; }
+        //The counter is sampled without a net change: one down, one up.
+        CCursorGuard() { assert(!s_bLive); s_bLive = true; ShowCursor(FALSE); s_iDisplayCount = ShowCursor(TRUE); }
         ~CCursorGuard() { Release(); s_bLive = false; }
 
         CCursorGuard(const CCursorGuard&) = delete;
@@ -53,8 +63,16 @@ namespace
 
         void SetClip(const RECT& rClip) { s_bClipHeld = ClipCursor(&rClip) != FALSE; }
         void ReleaseClip() { ClipCursor(NULL); s_bClipHeld = false; }
-        void Show() { ShowCursor(TRUE); ++s_iShowDelta; }
-        void Hide() { ShowCursor(FALSE); --s_iShowDelta; }
+
+        //Walk the counter until the cursor is shown (>= 0) or hidden (< 0),
+        //keyed on ShowCursor's own return value so the walk is exact whatever
+        //other code (WinDrv's capture release, for one) did to the counter.
+        //The cap only guards against a pathological counter; a wrecked one (a
+        //few thousand, the size seen in the field) still clears in one walk.
+        int Show() { for (int i = 0; i < kMaxStepsPerWalk && s_iDisplayCount < 0; ++i) { ++s_iShowDelta; s_iDisplayCount = ShowCursor(TRUE); } return s_iDisplayCount; }
+        int Hide() { for (int i = 0; i < kMaxStepsPerWalk && s_iDisplayCount >= 0; ++i) { --s_iShowDelta; s_iDisplayCount = ShowCursor(FALSE); } return s_iDisplayCount; }
+        int GetDisplayCount() const { return s_iDisplayCount; }
+        int GetShowDelta() const { return s_iShowDelta; }
 
         //GetClipCursor cannot answer this: an unclipped cursor reports the whole
         //virtual screen, so releasing needs our own last-applied state.
@@ -83,14 +101,17 @@ namespace
         }
 
     private:
+        static constexpr int kMaxStepsPerWalk = 100000;
         static bool s_bLive;
         static bool s_bClipHeld;
         static int s_iShowDelta;
+        static int s_iDisplayCount;
     };
 
     bool CCursorGuard::s_bLive = false;
     bool CCursorGuard::s_bClipHeld = false;
     int CCursorGuard::s_iShowDelta = 0;
+    int CCursorGuard::s_iDisplayCount = 0;
 
     //Frame deadline timer plus the message-aware wait on it. Three paths, best
     //first: a high-resolution waitable timer (~0.5 ms, no global timer period), a
@@ -182,12 +203,10 @@ namespace
         const wchar_t* m_pszPathName = L"";
     };
 
-    //Last stop for a hardware fault: /EHsc catch(...) never sees SEH, so a null
-    //dereference inside the engine bypasses the guarded loop entirely and lands
-    //here. Everything runs against static buffers, allocates nothing, and walks no
-    //stacks. The step order is load-bearing (see the design's crash-handling
-    //section): release the cursor and get the diagnosis into the log BEFORE the
-    //module lookup, which takes the loader lock and can deadlock when the fault
+    //Last stop for a fault the engine's guard chain did not catch (a fault on
+    //another thread, or under a window procedure). The step order is
+    //load-bearing: release the cursor and detach the log window BEFORE the
+    //report, whose tail takes the loader lock and can deadlock when the fault
     //happened under it.
     LONG WINAPI UnhandledExceptionLogger(EXCEPTION_POINTERS* const pExceptionInfo)
     {
@@ -201,36 +220,7 @@ namespace
 
         GLogHook = NULL; //Never dispatch into the WLog window code from a crashed context, as HandleError also does
 
-        if (!GLog) //Nothing left to report through; the cursor is already released
-        {
-            return EXCEPTION_CONTINUE_SEARCH;
-        }
-
-        const EXCEPTION_RECORD* const pRecord = pExceptionInfo ? pExceptionInfo->ExceptionRecord : nullptr;
-        const DWORD dwCode = pRecord ? pRecord->ExceptionCode : 0;
-        const void* const pFault = pRecord ? pRecord->ExceptionAddress : nullptr;
-
-        static wchar_t szLine[512];
-        CrashRecord::FormatException(dwCode, pFault, szLine, _countof(szLine));
-        GLog->Log(NAME_Critical, szLine);
-
-        //Log, not Logf: the history is up to 4096 chars and would overflow Core's
-        //format buffer. Whether an SEH fault leaves any history behind at all
-        //depends on the VC6 guard chain, so the empty case is expected.
-        GLog->Log(NAME_Critical, GErrorHist[0] ? GErrorHist : L"(GErrorHist empty)");
-
-        //Last, for the loader lock. Best effort: an unresolvable address still
-        //logged the code and the raw pointer above.
-        HMODULE hModule = NULL;
-        static wchar_t szModulePath[MAX_PATH];
-        szModulePath[0] = L'\0';
-        if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, static_cast<LPCWSTR>(pFault), &hModule))
-        {
-            GetModuleFileNameW(hModule, szModulePath, static_cast<DWORD>(_countof(szModulePath)));
-            szModulePath[_countof(szModulePath) - 1] = L'\0'; //A path longer than the buffer truncates without terminating on XP
-        }
-        CrashRecord::FormatModuleOffset(pFault, hModule, szModulePath, szLine, _countof(szLine));
-        GLog->Log(NAME_Critical, szLine);
+        CrashContext::LogReport(pExceptionInfo); //Tolerates a null GLog
 
         return EXCEPTION_CONTINUE_SEARCH; //Let Windows error reporting run as it would have
     }
@@ -280,6 +270,8 @@ namespace
 
 INT WINAPI WinMain(HINSTANCE /*hInInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, INT /*nCmdShow*/)
 {
+    CrashContext::Install(); //First: records faults from here on, including inside appInit
+
     INITCOMMONCONTROLSEX CommonControlsInfo;
     CommonControlsInfo.dwSize = sizeof(INITCOMMONCONTROLSEX);
     CommonControlsInfo.dwICC = ICC_TREEVIEW_CLASSES | ICC_LINK_CLASS;
@@ -294,7 +286,7 @@ INT WINAPI WinMain(HINSTANCE /*hInInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR
     FMallocWindows Malloc;
     FOutputDeviceFileFlush Log;
     FOutputDeviceWindowsError Error;
-    FFeedbackContextWindows Warn;
+    FFeedbackContextLog Warn;
 
     //If -localdata command line option present, don't use user documents for data; can't use appCmdLine() yet.
     std::unique_ptr<FFileManagerDeusExe> pFileManager(wcswcs(GetCommandLine(), L" -localdata") == nullptr ? new FFileManagerDeusExeUserDocs : new FFileManagerDeusExe);
@@ -399,16 +391,18 @@ CLauncher::CLauncher()
     std::unique_ptr<WLog> LogWindowPtr;
     UEngine* const pEngine = InitEngineAndViewport(hMonitor, LogWindowPtr);
 
-    //Apply WinDrv binary patches BEFORE creating CNativeHooks so that any
-    //mismatch dialog runs before we start mutating GNatives[]. m_hWnd is
+    //Apply the stock-DLL byte patches BEFORE creating CNativeHooks so that any
+    //mismatch dialog runs before we start mutating GNatives[]. Every patched
+    //module is already bound by this point -- InitEngineAndViewport loads the
+    //game package, which pulls in DeusEx.dll, and WinDrv.dll with it. m_hWnd is
     //assigned by InitEngineAndViewport above; it will be NULL on a dedicated
     //server, which the dialog tolerates.
-    CWinDrvPatch WinDrvPatch(m_hWnd);
+    CBytePatch BytePatch(m_hWnd);
 
     //Initialize native hooks
     CNativeHooks NativeHooks(PROJECTNAME);
 
-    LogStartupHeader(pEngine, WinDrvPatch);
+    LogStartupHeader(pEngine, BytePatch);
 
     //Main loop. GIsGuarded makes appError append the engine's guard-chain
     //history to GErrorHist and throw instead of showing its message box on the
@@ -425,10 +419,11 @@ CLauncher::CLauncher()
         }
         catch (...)
         {
-            //Log before HandleError, which shows the stock message box. Log, not
-            //Logf - the history is up to 4096 chars and would overflow Core's
-            //format buffer. A throw from anywhere but appError leaves no history.
-            GLog->Log(NAME_Critical, GErrorHist[0] ? GErrorHist : L"(GErrorHist empty)");
+            //Report before HandleError, which shows the stock message box. A
+            //hardware fault the guard chain caught and rethrew arrives here with
+            //its registers and stack already recorded first-chance; a plain
+            //appError arrives with only GErrorHist, which the report also logs.
+            CrashContext::LogReport(nullptr);
             GError->HandleError();
             //Force exit, as an unguarded appError does today: appRequestExit(1)
             //ends the process here. Nothing below may run - LocalizeGeneral,
@@ -637,10 +632,10 @@ UEngine* CLauncher::InitEngineAndViewport(const HMONITOR hMonitor, std::unique_p
 }
 
 //Startup diagnostic block (design doc sec3.4) -- called from the latest point
-//where every fact it reports exists (viewport, WinDrvPatch outcomes, gamepad).
+//where every fact it reports exists (viewport, byte-patch outcomes, gamepad).
 //StartupHeader::Build is the pure assembly; everything here is plumbing that
 //gathers facts and logs the resulting lines.
-void CLauncher::LogStartupHeader(UEngine* const pEngine, const CWinDrvPatch& WinDrvPatch)
+void CLauncher::LogStartupHeader(UEngine* const pEngine, const CBytePatch& BytePatch)
 {
     StartupHeader::Facts Facts;
 
@@ -685,9 +680,11 @@ void CLauncher::LogStartupHeader(UEngine* const pEngine, const CWinDrvPatch& Win
     Facts.szPadGuid = szPadGuid;
     Facts.szPadFamily = m_Gamepad.GetInfo();
 
-    for (const CWinDrvPatch::SSiteOutcome& Site : WinDrvPatch.GetSiteOutcomes())
+    for (const CBytePatch::SSiteOutcome& Site : BytePatch.GetSiteOutcomes())
     {
-        Facts.PatchOutcomes.push_back({ Site.pszDescription, Site.pszOutcome });
+        Facts.PatchOutcomes.push_back({ Site.pszModule,
+                                        Site.pszDescription ? Site.pszDescription : L"",
+                                        Site.pszOutcome });
     }
 
     Facts.bRawInput = m_bRawInput != 0;
@@ -875,22 +872,23 @@ void CLauncher::PumpMessages(UEngine* const pEngine, const bool bMouseOverWindow
                     pEngine->InputEvent(m_pViewPort, EInputKey::IK_MouseY, EInputAction::IST_Axis, -fDeltaY);
                 }
 
-                if (raw.data.mouse.ulButtons & RI_MOUSE_BUTTON_4_UP)
+                //Press before release, and never one-or-the-other: a fast click
+                //can pack both edges into a single packet, and dropping the release
+                //leaves the engine's key table holding the button down.
+                static const struct { ULONG ulDown; ULONG ulUp; EInputKey eKey; } kSideButtons[] = {
+                    { RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP, IK_Unknown05 },
+                    { RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP, IK_Unknown06 },
+                };
+                for (const auto& Button : kSideButtons)
                 {
-                    pEngine->InputEvent(m_pViewPort, EInputKey::IK_Unknown05, EInputAction::IST_Release);
-                }
-                else if (raw.data.mouse.ulButtons & RI_MOUSE_BUTTON_4_DOWN)
-                {
-                    pEngine->InputEvent(m_pViewPort, EInputKey::IK_Unknown05, EInputAction::IST_Press);
-                }
-
-                if (raw.data.mouse.ulButtons & RI_MOUSE_BUTTON_5_UP)
-                {
-                    pEngine->InputEvent(m_pViewPort, EInputKey::IK_Unknown06, EInputAction::IST_Release);
-                }
-                else if (raw.data.mouse.ulButtons & RI_MOUSE_BUTTON_5_DOWN)
-                {
-                    pEngine->InputEvent(m_pViewPort, EInputKey::IK_Unknown06, EInputAction::IST_Press);
+                    if (raw.data.mouse.ulButtons & Button.ulDown)
+                    {
+                        pEngine->InputEvent(m_pViewPort, Button.eKey, EInputAction::IST_Press);
+                    }
+                    if (raw.data.mouse.ulButtons & Button.ulUp)
+                    {
+                        pEngine->InputEvent(m_pViewPort, Button.eKey, EInputAction::IST_Release);
+                    }
                 }
 
                 bSkipMessage = true;
@@ -932,7 +930,9 @@ void CLauncher::MainLoop(UEngine* const pEngine)
     //desktop.
     const CFrameTimer FrameTimer;
     CCursorGuard CursorGuard; //Releases clip and ShowCursor delta on return and on unwind
+    CLevelWatch LevelWatch;
     GLog->Logf(L"Main loop: frame pacing via %s.", FrameTimer.GetPathName());
+    GLog->Logf(L"Cursor: display counter at main-loop entry is %d.", CursorGuard.GetDisplayCount());
 
     while (GIsRunning && !GIsRequestingExit)
     {
@@ -952,6 +952,20 @@ void CLauncher::MainLoop(UEngine* const pEngine)
         //its separate roles below.
         const HWND hForeground = GetForegroundWindow();
         const bool bForeground = m_hWnd != NULL && (hForeground == m_hWnd || IsChild(m_hWnd, hForeground) != FALSE);
+
+        //Alt-tabbing back into exclusive fullscreen can hand the game window the
+        //foreground while the render device still has it minimized, leaving a black
+        //taskbar entry the user can't get back. Keyed on the game window itself
+        //being foreground, not on our process: the log window being foreground
+        //while the game is minimized is the user's doing.
+        const bool bIconicForeground = bForeground && hForeground == m_hWnd && IsIconic(m_hWnd) != FALSE;
+        if (bIconicForeground && !m_bPrevIconicForeground) //Edge, so a restore that doesn't stick can't flood the log
+        {
+            GLog->Log(L"Window: game window is foreground but minimized; restoring.");
+            ShowWindow(m_hWnd, SW_RESTORE);
+        }
+        m_bPrevIconicForeground = bIconicForeground;
+
         RECT rClientScreen = {};
         RECT rClientArea = {};
         //Fails once the window is gone, which this block outlives by a frame; the
@@ -1061,6 +1075,7 @@ void CLauncher::MainLoop(UEngine* const pEngine)
         }
         iLastTickQpc = liNow.QuadPart;
         RecordFrameStats(fFrameTimeMs, fOvershootMs);
+        LevelWatch.Update(pEngine); //Transitions happen inside Tick, so this reports them right after
 
         //Post-tick re-validation: the viewport also dies inside Tick when the user
         //closes the window, before any WM_QUIT reaches us. Client is null on a
@@ -1068,6 +1083,25 @@ void CLauncher::MainLoop(UEngine* const pEngine)
         if(!pEngine->Client || pEngine->Client->Viewports.Num() == 0)
         {
             m_pViewPort = nullptr;
+        }
+        else
+        {
+            //A video-mode change can replace the viewport object and/or its window.
+            //Follow both, and move everything bound to the old window handle (raw
+            //input registration; the pre-tick facts pick the new handle up next
+            //frame) to the new one. Logged because it is rare and a bug report
+            //wants to know it happened.
+            m_pViewPort = pEngine->Client->Viewports(0);
+            const HWND hViewportWnd = static_cast<HWND>(m_pViewPort->GetWindow());
+            if(hViewportWnd != NULL && hViewportWnd != m_hWnd)
+            {
+                GLog->Logf(L"Window: viewport window changed from 0x%p to 0x%p; re-attaching.", static_cast<void*>(m_hWnd), static_cast<void*>(hViewportWnd));
+                m_hWnd = hViewportWnd;
+                if(m_bRawInput && !RegisterRawInput(m_hWnd))
+                {
+                    GLog->Log(L"Raw input: failed to re-register for the new viewport window.");
+                }
+            }
         }
 
         if(m_pViewPort)
@@ -1138,18 +1172,14 @@ void CLauncher::MainLoop(UEngine* const pEngine)
                 SetCursorPos(p.x, p.y);
             }
 
-            //Diff the desired state against what the OS actually reports, so an
-            //externally cleared clip or a foreign ShowCursor heals within a frame while
-            //a steady state costs two cheap reads. Each transition applies exactly one
-            //ShowCursor call, because it moves a display counter by +-1 per call and
-            //re-asserting a state every frame would run that counter away.
+            //The clip is diffed against what the OS reports, so an externally
+            //cleared clip heals within a frame. Visibility is diffed against this
+            //thread's own ShowCursor counter (the guard tracks it from the return
+            //values), never against GetCursorInfo - see the guard's comment.
             RECT rActualClip = {};
             const bool bClipMatchesDesired = Want.bClip && GetClipCursor(&rActualClip) && EqualRect(&rActualClip, &Want.rClip)!=FALSE;
-            CURSORINFO CursorInfo = {};
-            CursorInfo.cbSize = sizeof(CursorInfo);
-            const bool bCursorShowing = GetCursorInfo(&CursorInfo) ? (CursorInfo.flags & CURSOR_SHOWING)!=0 : true;
 
-            const CursorPolicy::Actions Act = CursorPolicy::Diff(Want, bClipMatchesDesired, CursorGuard.IsClipHeld(), bCursorShowing);
+            const CursorPolicy::Actions Act = CursorPolicy::Diff(Want, bClipMatchesDesired, CursorGuard.IsClipHeld(), CursorGuard.GetDisplayCount());
             if (Act.bSetClip) //Fixed being able to move cursor outside of fullscreen game on dual monitor systems
             {
                 CursorGuard.SetClip(Want.rClip);
@@ -1158,13 +1188,23 @@ void CLauncher::MainLoop(UEngine* const pEngine)
             {
                 CursorGuard.ReleaseClip();
             }
-            if (Act.bHideOneStep) //Get rid of double mouse cursors when game doesn't clip it
+            //Transitions are logged with the counter the walk landed on: a value
+            //far from -1/0 means something outside this loop moved the counter.
+            if (Act.bHide) //Get rid of double mouse cursors when game doesn't clip it
             {
-                CursorGuard.Hide();
+                const int iBefore = CursorGuard.GetDisplayCount();
+                const int iAfter = CursorGuard.Hide();
+                GLog->Logf(L"Cursor: hidden; counter %d -> %d (delta %d; pad=%d mouse=%d over=%d inClient=%d captured=%d fg=%d menu=%d)",
+                    iBefore, iAfter, CursorGuard.GetShowDelta(), bPadActive, bMouseActive, bMouseOverWindow,
+                    Frame.bMouseInClientRect, Frame.bCaptured, bForeground, bInMenu);
             }
-            if (Act.bShowOneStep)
+            if (Act.bShow)
             {
-                CursorGuard.Show();
+                const int iBefore = CursorGuard.GetDisplayCount();
+                const int iAfter = CursorGuard.Show();
+                GLog->Logf(L"Cursor: shown; counter %d -> %d (delta %d; pad=%d mouse=%d over=%d inClient=%d captured=%d fg=%d menu=%d)",
+                    iBefore, iAfter, CursorGuard.GetShowDelta(), bPadActive, bMouseActive, bMouseOverWindow,
+                    Frame.bMouseInClientRect, Frame.bCaptured, bForeground, bInMenu);
             }
         }
     }

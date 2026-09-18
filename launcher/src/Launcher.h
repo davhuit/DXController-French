@@ -4,7 +4,7 @@
 #include "FrameStats.h"
 
 class CConfigOverride;
-class CWinDrvPatch;
+class CBytePatch;
 
 class CLauncher : private FExecHook
 {
@@ -22,7 +22,7 @@ private:
     bool RunPreGameDialogs(HMONITOR& hMonitorOut); //False means abort startup
     void ApplyConfigOverrides(std::list<CConfigOverride>& ConfigOverrides);
     UEngine* InitEngineAndViewport(const HMONITOR hMonitor, std::unique_ptr<WLog>& LogWindowPtr);
-    void LogStartupHeader(UEngine* const pEngine, const CWinDrvPatch& WinDrvPatch);
+    void LogStartupHeader(UEngine* const pEngine, const CBytePatch& BytePatch);
 
     void ApplyAutoFOV(const size_t iSizeX, const size_t iSizeY);
     void MainLoop(UEngine * const pEngine);
@@ -42,6 +42,7 @@ private:
     UEngine* m_pEngine = nullptr; //Set once in the constructor; used by Exec() (GamepadReload) which has no other route to it
     bool m_bPrevInMenu = false;
     bool m_bPrevHasFocus = false;
+    bool m_bPrevIconicForeground = false; //Edge state for the minimized-yet-foreground restore in MainLoop
 
     //Active-input-device change log (LogActiveInputDevice). The tri-state is
     //derived from the same IsPadActive/IsMouseActive values the frame's

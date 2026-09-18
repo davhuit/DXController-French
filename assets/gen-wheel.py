@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = ["pillow==12.2.0", "numpy==2.4.4"]
+# ///
 """Generate the DXController weapon-wheel textures (belt-style open ring).
 
 Outputs into OUT_DIR (default: a 'wheel-gen' dir next to this script), all
 TEX_SIZE square:
   WheelPlate.png        RGBA greyscale-on-alpha -> masked import
+  veil/WheelVeil.png    mode-L, 128 outside the plate footprint, VEIL_LUM
+                        inside -> non-masked modulated import
   wedges/wedge0..9.png  mode-L greyscale on black -> non-masked additive import
 
 The plate uses the stock item bar's "luminance = opacity" vocabulary:
@@ -18,7 +23,7 @@ Deterministic: identical PARAMETERS produce byte-identical output.
 Geometry is expressed as a fraction of the disc radius R = TEX_SIZE/2,
 so it is resolution-independent.
 
-Run via the build (sync-and-build.sh / CI), or standalone:
+Run via the build (build.ps1 / sync-and-build.sh), or standalone:
   python3 gen-wheel.py [OUT_DIR]
 """
 import sys
@@ -34,6 +39,7 @@ SLOT_COUNT           = 10
 # Belt-derived luminances ("luminance = opacity" under DSTY_Translucent)
 LUM_FILL             = 50    # cell interior (matches stock belt cells)
 LUM_FRAME            = 75    # cell frames (matches the belt bar)
+VEIL_LUM             = 32    # WheelVeil texel inside the cells: x0.25 under DSTY_Modulated
 
 # Ring geometry (fraction of radius R)
 BAND_INNER_FRAC      = 0.44  # cells' inner edge
@@ -125,6 +131,23 @@ def render_plate():
     return Image.fromarray(arr, "RGBA")
 
 
+def render_veil():
+    """Modulation veil shaped like the plate: identity grey (128 = x1.0)
+    everywhere, VEIL_LUM inside the cells and readout. Drawn DSTY_Modulated
+    under the plate when the wheel opens over a bright persona screen, so
+    only the plate's own footprint darkens (modulated draws have no key)."""
+    n = TEX_SIZE
+    rad, ang = _coords(n)
+    aa = 1.0 / (n / 2.0)
+
+    _, cell_cov = _lum_cov(_cell_inside(rad, ang), aa)
+    _, ro_cov = _lum_cov(_readout_inside(n), aa)
+    cov = np.maximum(cell_cov, ro_cov)
+
+    val = 128.0 - (128.0 - VEIL_LUM) * cov
+    return Image.fromarray(np.clip(val, 0, 255).round().astype(np.uint8), "L")
+
+
 def render_wedge(i):
     """Soft additive glow shaped like cell i (band-limited, gap-inset),
     brighter toward the outer edge."""
@@ -150,19 +173,25 @@ def render_wedge(i):
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else (Path(__file__).parent / "wheel-gen")
     wedges = out / "wedges"
+    veil = out / "veil"
     out.mkdir(parents=True, exist_ok=True)
     wedges.mkdir(parents=True, exist_ok=True)
+    veil.mkdir(parents=True, exist_ok=True)
 
     plate_path = out / "WheelPlate.png"
     render_plate().save(plate_path)
     print(f"WheelPlate.png -> {plate_path}")
+
+    veil_path = veil / "WheelVeil.png"
+    render_veil().save(veil_path)
+    print(f"WheelVeil.png -> {veil_path}")
 
     for i in range(SLOT_COUNT):
         p = wedges / f"wedge{i}.png"
         render_wedge(i).save(p)
         print(f"wedge{i}.png -> {p}")
 
-    print(f"\n1 plate + {SLOT_COUNT} wedges written to {out}")
+    print(f"\n1 plate + 1 veil + {SLOT_COUNT} wedges written to {out}")
 
 
 if __name__ == "__main__":

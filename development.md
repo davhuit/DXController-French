@@ -12,7 +12,8 @@ DXController/Classes/*.uc   the mod — one package, compiles to DXController.u
 DeusEx/Classes/*.uc         overlay edits to stock DeusEx classes (rebuilds DeusEx.u)
 launcher/                   launcher source (fork of Deus Exe — builds DeusEx.exe)
 assets/                     source art + generators for the DXController textures
-sync-and-build.sh           rsync + two-pass UCC build
+build.ps1                   build + install everything (see Building)
+sync-and-build.sh, flake.nix maintainer's WSL/Nix wrapper for the same steps
 .github/workflows/build.yml CI build and release packaging
 scripting-reference.txt     UE1-era UnrealScript language reference
 ```
@@ -29,56 +30,38 @@ without a game install.
 
 ## Building
 
-Prerequisites: a Deus Ex GOTY install with `UCC.exe` in `System/`, plus
-WSL (or bash with rsync and `cmd.exe` access).
+Prerequisites, all on Windows:
 
-One-time setup — symlink `gamedir/` at your install (gitignored) and
-export the stock `DeusEx` source once so the overlay has something to
-sit on top of:
+- A Deus Ex GOTY install.
+- Visual Studio 2022 Build Tools (or Visual Studio) with the "Desktop
+  development with C++" workload.
+- [`uv`](https://docs.astral.sh/uv/): `winget install astral-sh.uv`,
+  then open a new terminal. `uv` fetches Python and the texture
+  generators' dependencies during build.
 
-```bash
-ln -s "/path/to/Deus Ex" gamedir
+One-time setup: export the stock `DeusEx` source so the overlay has
+something to sit on top of. From the game's `System\` directory:
+
+```
+ucc batchexport DeusEx.u Class uc ..\DeusEx\Classes
 ```
 
-```cmd
-ucc.exe batchexport DeusEx.u Class uc ..\DeusEx\Classes
+Then, from the repo root in PowerShell:
+
+```
+.\build.ps1 -GameDir "C:\Games\Deus Ex"
 ```
 
-Then build:
-
-```bash
-nix run .#sync-and-build         # generate textures, sync overlays, two-pass UCC build
-nix run .#sync-and-build -- -n   # dry run
-BUILD_DIR=/path nix run .#sync-and-build
-```
-
-The flake app puts python3 + Pillow + numpy and `dos2unix` on PATH; the
-header comment in `sync-and-build.sh` explains the two-pass UCC dance
-and the GPF it tolerates. Output lands in `gamedir/System/`: `DeusEx.u`
-and `DXController.u`.
-
-### Build details worth knowing
-
-- **The repo is LF; UCC wants CRLF.** `.editorconfig` and
-  `.gitattributes` pin every text file to LF. The build script
-  converts each overlay `.uc` with `unix2dos -n` on the way into the
-  build dir, so only our overlay files are converted — stock files
-  stay verbatim. Never let git check out the tree under a config that
-  would re-CRLF it.
-- **`DeusEx.ini` needs `EditPackages=DXController`** at the end of the
-  `EditPackages` block. The build script adds it automatically.
-- **Two-pass, with a GPF.** Pass 1 rebuilds `DeusEx.u`; UCC GPFs while
-  loading the freshly-rebuilt package, but the `.u` is on disk before
-  the crash. The script pipes `n` to stdin (to skip a header overwrite
-  prompt), tolerates the non-zero exit, and verifies the `.u` is
-  present. Pass 2 builds `DXController.u` in a fresh UCC process to
-  side-step the load-time GPF.
+`-SkipLauncher` and `-SkipScripts` build one half only. If PowerShell
+refuses to run the script, allow local scripts once with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. Output lands in
+`<GameDir>\System\`: `DeusEx.u`, `DXController.u`, `DeusEx.exe`.
 
 ## Releases
 
 CI builds on every push to `master`; on a `v*` tag it assembles a
 release `.zip` containing `DeusEx.u`, `DXController.u`, `README.md`,
-and `DeusEx.exe` (built from `launcher/` via `launcher/build.sh`).
+and `DeusEx.exe` (built by `build.ps1`).
 
 To cut a release, push a `v*` tag.
 
@@ -116,14 +99,19 @@ Current units: `FrameStats`, `FramePacing`, `CursorPolicy`, `LogTime`,
 `launcher/tests/` builds these units against doctest (vendored header,
 `launcher/tests/doctest.h`) via `launcher/tests/tests.vcxproj`, a
 console-exe project in `launcher.sln` that never includes engine headers
-or links engine libs. `launcher/build.sh` builds and runs the test exe
-after the launcher build (via Windows interop from WSL) and fails the
-build on a test failure; CI (`.github/workflows/build.yml`) runs the test
-exe as a separate step after its own msbuild invocation, since the
-solution build alone would compile the tests without checking results.
+or links engine libs. The solution build compiles the tests but never
+runs them. `build.ps1` and `sync-and-build.sh` run the test exe after
+msbuild and before installing, so a red test blocks the install;
+`launcher/build.sh` builds and runs it without installing. CI gets this
+through `build.ps1`.
+
 Every new pure-unit or test source file needs explicit `launcher.vcxproj`/
 `tests.vcxproj` (+ `.filters`) entries — no globbing — and must not set
 `PrecompiledHeader=Use`.
+
+A pure unit that is mostly a data table lives entirely in a header, so
+the tests can check the real table rather than a copy: `FixAppNavTable.h`
+and `BytePatchSites.h` are the two.
 
 ### Main loop (`CLauncher::MainLoop`, `Launcher.cpp`)
 
@@ -165,53 +153,111 @@ Facts are gathered at two points in the loop, deliberately:
   everything that dereferences the viewport (player/`rootWindow`/
   `bInMenu`, auto-FOV, cursor apply) reads its facts only after that
   re-validation, not before. Collapsing the two fact blocks into one
-  reintroduces a use-after-free.
+  reintroduces a use-after-free. The same block re-reads `Viewports(0)`
+  and its window handle every frame: a video-mode change can replace
+  either, and anything bound to the old handle (raw-input registration)
+  is moved to the new one when it changes.
+
+The loop also restores the game window when it is the foreground
+window yet minimized (alt-tab back into exclusive fullscreen can leave
+it that way). Keyed on the game window itself, not the process, so the
+log window being foreground while the game is minimized is left alone.
 
 A ring buffer records per-frame stats (frame duration, deadline
 overshoot); `GetFrameStats` (an exec command, alongside `GamepadGetInfo`
 etc.) logs count/avg/p50/p99/max and stdev, then resets the buffer.
 
+After each `Tick`, a level watcher logs map changes, `LevelAction`
+transitions and queued travel, and the feedback context
+(`FFeedbackContextLog`) logs each distinct slow-task status string.
+Both feed the crash report's breadcrumbs.
+
+### Data directories and file overrides
+
+`FFileManagerDeusExe` sits under every engine file access and applies
+two redirects before the Documents rebase:
+
+- **`.int` overrides** (`IntPaths` in the launcher's ini section): built
+  on first use as soon as `GConfig` exists, not at game start. The
+  engine reads `DeusEx.int` during `appInit`, and the config cache keeps
+  whichever copy it read first, so a list built later would miss it.
+- **Conversation packages** (`DeusExCon*.u`): the game requests these
+  by bare file name, and `appFindPackageFile` satisfies a bare name from
+  the current directory (`System`) before it consults `Core.System
+  Paths`, so a mod's copy in a data directory never loads on its own.
+  At game start the data directories are scanned in `Paths` order
+  (Documents-redirected copy before the install's, `System` itself
+  skipped) and each package name maps to the first copy found.
+
+Both redirects apply to `FileSize` as well as `CreateFileReader`, since
+`FConfigCacheIni::Find` and `appFindPackageFile` probe existence with
+`FileSize` before reading.
+
 ### Crash and cursor-state handling
 
-`CLauncher`'s constructor sets `GIsGuarded = 1` around the `MainLoop`
-call and wraps it in `try/catch(...)`: on catch it logs `GErrorHist`
-(via `Log`, not `Logf` — the history can already fill Core's format
-buffer), calls `GError->HandleError()` for the stock message box, then
-force-exits via `appRequestExit(1)` without falling through into normal
-constructor teardown (which would run against an object system
-`HandleError` already tore down). A `SetUnhandledExceptionFilter`
-handler installed in `WinMain` backstops faults that don't reach the
-guard chain: reentrancy gate first, then cursor release, then
-`GLogHook = NULL`, then log what's known, and module+offset resolution
-(`GetModuleHandleExW`/`GetModuleFileNameW`) *last* — it takes the loader
-lock and can deadlock if the fault happened under it.
+The engine's VC6 guard chain catches a hardware fault in `catch(...)`
+and rethrows it as a C++ exception, so by the time anything of ours
+runs, the registers and the faulting frames are gone. A vectored
+exception handler (`CrashContext::Install`, first thing in `WinMain`)
+therefore records every error-severity exception first-chance: the
+record, the thread context and a copy of the top 16 KB of the faulting
+stack. Latest wins, and the report states the record's age, because
+some DLLs raise and swallow probe faults of their own.
 
-Two things are unverified pending the batched manual playtest: whether
-an SEH hardware fault actually propagates through the VC6 DLL guard
-chain to reach the filter with `GErrorHist` populated (the guard macros
-are plain VC6 `/GX`-era `catch(...)`/`throw;`), and the force-exit
+`CLauncher`'s constructor sets `GIsGuarded = 1` around the `MainLoop`
+call and wraps it in `try/catch(...)`: on catch it calls
+`CrashContext::LogReport`, then `GError->HandleError()` for the stock
+message box, then force-exits via `appRequestExit(1)` without falling
+through into normal constructor teardown (which would run against an
+object system `HandleError` already tore down). A
+`SetUnhandledExceptionFilter` handler backstops faults that never reach
+the guard chain (another thread, a window procedure): reentrancy gate,
+cursor release, `GLogHook = NULL`, then the same report.
+
+The report logs, in this order: origin (first-chance record or live
+filter pointers, thread, age), exception code and address, the map and
+engine-stage breadcrumbs, the register dump, `GErrorHist` (via `Log`,
+not `Logf` — the history can already fill Core's format buffer), and
+*last* the faulting module+offset and a DbgHelp stack walk — those take
+the loader lock and can deadlock if the fault happened under it. The
+walk reads the crashed frames from the first-chance snapshot rather
+than live memory, since the reporting code runs in frames above them
+and would have overwritten them. Launcher frames resolve through `DeusEx.pdb`,
+which the release zip ships next to the exe; engine frames resolve
+through export tables, which already name most engine functions. Everything runs against static buffers; the line
+formatting is the pure `CrashRecord` unit.
+
+Unverified pending the batched manual playtest: the force-exit
 semantics of `appRequestExit(1)` (declaration-only in the vendored SDK
-headers, no visible definition to check against). Treat both as
-best-effort until that pass confirms or refutes them.
+headers, no visible definition to check against).
 
 A cursor guard object, constructed at `MainLoop` entry, owns the
 currently-applied clip rect and the net `ShowCursor` delta this code
 has applied; its destructor releases both (covering normal return and
-C++ unwind). Cursor state is re-verified once per frame against actual
-OS state (`GetClipCursor`/`GetCursorInfo`), not a blind cache, so an
-externally-cleared clip self-heals within a frame. The clip is also
-gated on `GetForegroundWindow() == m_hWnd` rather than `GetFocus()` —
-`GetFocus()` is thread-queue focus and can diverge from what the user
-perceives as the active window — so an alt-tabbed-and-hung game can
-never hold a desktop-global clip.
+C++ unwind). The clip is re-verified once per frame against
+`GetClipCursor`, so an externally-cleared clip self-heals within a
+frame. The clip is also gated on `GetForegroundWindow() == m_hWnd`
+rather than `GetFocus()` — `GetFocus()` is thread-queue focus and can
+diverge from what the user perceives as the active window — so an
+alt-tabbed-and-hung game can never hold a desktop-global clip.
 
-**Quirk — `ShowCursor` is a per-process counter, not a boolean.** Each
-call moves the display counter by exactly ±1 and returns the new value;
-a per-frame `while(ShowCursor(FALSE) > 0);`-style loop run every frame
-(rather than once per visibility transition) runs the counter away from
-zero indefinitely. The launcher's cursor guard applies exactly one
-`ShowCursor` call per transition and tracks the net delta so its
-destructor can return the counter to where it found it.
+**Quirk — `ShowCursor` is a per-thread counter, and `GetCursorInfo`
+does not report it.** Each `ShowCursor` call moves the calling thread's
+display counter by exactly ±1 and returns the new value; the cursor
+draws over that thread's windows while the counter is ≥ 0. Nothing
+else reports that counter: `GetCursorInfo`'s `CURSOR_SHOWING` is the
+state of whichever thread's window last received the cursor, and it
+only agrees with our counter once the mouse has moved over the game
+window. Stepping the counter against `CURSOR_SHOWING` once per frame
+therefore ran it away at frame rate — thousands of stray `ShowCursor`
+calls after one alt-tab — and the cursor stayed visible in-game for
+minutes afterwards. The cursor guard keeps the counter from
+`ShowCursor`'s return values (sampled once at construction with a
+down/up pair), walks it to the wanted side of zero on each transition
+using those return values, and tracks the net delta so its destructor
+can return the counter to where it found it. Stock WinDrv touches the
+same counter (its capture release walks it up to ≥ 0), which the walk
+absorbs.
 
 ### Native dialogs
 
@@ -237,8 +283,30 @@ the previous log is rotated to `<package>.old.log` (the stock output
 device does not rotate on its own); right before `MainLoop` starts, a
 single delimited block logs the facts most useful for a bug report in
 one place — versions, exe/command line, OS build, renderer/viewport
-config, effective FPS cap, active pad identity, `WinDrvPatch` per-site
+config, effective FPS cap, active pad identity, `BytePatch` per-site
 outcomes, and the ini values that change behaviour.
+
+### Stock-DLL byte patches
+
+`launcher/src/BytePatch.cpp` rewrites a handful of instructions in the
+stock DLLs in memory at startup, for bugs that cannot be reached from
+UnrealScript. Each site carries a whole-instruction fingerprint and is
+written only on an exact match, so an unrecognised build is refused
+rather than corrupted; the first mismatch prompts the user and abandons
+every remaining site, in every module, because a mismatch means the
+install is not the build the patches were measured against. Outcomes are
+reported per site in the startup header.
+
+Patched today: two `WinDrv.dll` joystick bugs (see the input pipeline
+below) and `DeusEx.dll`'s save-index scan, which read only the low three
+digits of a `SaveNNNN` directory name and so capped new save slots at
+`Save1000`, overwriting it on every subsequent save. Addresses are given
+against each module's preferred image base and relocated by the observed
+load delta.
+
+The patcher runs after `InitEngineAndViewport`, which is what guarantees
+both modules are bound: loading the game package pulls in `DeusEx.dll`,
+and `WinDrv.dll` with it.
 
 ## Source overlay model
 
@@ -358,11 +426,11 @@ backend is the *only* source of joystick events. Don't re-enable
 for the same `IK_Joy*` slots.
 
 The launcher also patches `WinDrv.dll` at startup (see
-`launcher/src/WinDrvPatch.cpp` and `windrv-input.md`) to fix two
+`launcher/src/BytePatch.cpp` and `windrv-input.md`) to fix two
 joystick bugs in the stock binary. The patches are defence-in-depth
-given `UseJoystick=False`. `WinDrvPatch: fingerprint MISMATCH` in the
+given `UseJoystick=False`. `BytePatch: fingerprint MISMATCH` in the
 launcher log means the patcher refused to write into an unrecognised
-`WinDrv.dll` — confirm against the GOG / Steam build the patch was
+DLL — confirm against the GOG / Steam build the patch was
 authored for.
 
 The launcher additionally synthesizes modifier-key releases when the
@@ -947,6 +1015,12 @@ rows currently shown. The variant tile sets are generated by
   generated by `assets/gen-veil.py`) to pull the scene down, then a
   `DSTY_Translucent` pass to add a flat floor back if needed. See
   `OnScreenKeyboardWindow.DrawWindow` and `ControllerHintOverlay.uc`.
+  Modulated draws also ignore the colour key, so a veil is always the
+  full rectangle. For a *shaped* veil bake the shape into the texel
+  values: 128 (identity) outside, dark inside — `WheelVeil`, drawn under
+  the belt-assign wheel's plate in `RadialMenuWindow.DrawBackplate`.
+  An additive plate alone cannot cover a bright persona screen, which
+  reads as the screen being drawn on top of the wheel.
 - **For a translucent-tinted glow over arbitrary geometry, use
   `DSTY_Translucent` over a greyscale-on-black texture.** UE1's
   additive blend makes black texels add nothing, so the visible shape
@@ -963,7 +1037,7 @@ rows currently shown. The variant tile sets are generated by
   by colour value — use a **black** index-0 key so the transparent
   region adds nothing additively. Pass `--key black` to
   `assets/png-to-pcx.py` (see the `WheelPlate` conversion call in
-  `sync-and-build.sh`).
+  `build.ps1`).
 - **`GC.SetTextColorRGB` / `SetTileColorRGB` leave `Color.A == 0`.**
   Both helpers build a `Color` from R/G/B only and never touch the
   alpha byte. Under `DSTY_Masked` the *text* renderer honours that
@@ -1176,8 +1250,8 @@ Gamepad-domain logs are split into three tiers:
   (the launcher also reads this flag for its device-idle edges).
 
 DeusEx-overlay classes cannot reference the DXController package
-(`DeusEx.u` builds first); they route nav diagnostics through the
-`DeusExRootWindow.GamepadNavLog` hook instead.
+(`DeusEx.u` builds first); they route diagnostics through the
+`DeusExRootWindow.GamepadNavLog` / `GamepadDebugLog` hooks instead.
 
 Do **not** create new ad-hoc `Log(...)` calls in controller code or
 per-class config bools; if a new debug category needs its own toggle, add a
@@ -1200,7 +1274,8 @@ All DXController textures are generated at build time and compiled into
 texture package.
 
 - `assets/gen-wheel.py` — renders the weapon-wheel plate
-  (`WheelPlate.png`) and the ten slice-highlight wedges
+  (`WheelPlate.png`), its plate-shaped modulation veil
+  (`veil/WheelVeil.png`) and the ten slice-highlight wedges
   (`wedges/wedge0..9.png`). The plate is an open ring of ten framed
   wedge cells (luminance 75 frame / 50 fill, matching the stock belt)
   plus a centre readout plate; the wedges are matching per-slot glow
@@ -1222,8 +1297,8 @@ texture package.
   key, for the additive wedges).
 - Button glyphs are hand-authored PNGs under `assets/XboxSeries/`.
 
-`sync-and-build.sh` and CI (`.github/workflows/build.yml`) each carry
-their **own copy** of the generate-and-convert recipe — when adding a
-generator or changing a conversion flag, update both, or CI fails on
-the missing texture (this has happened). python3 + Pillow + numpy are
-provided by the `sync-and-build` flake app and `nix develop`.
+The generate-and-convert recipe lives in `build.ps1` and
+`sync-and-build.sh`; change both when adding a generator or a conversion
+flag. Each generator pins its Python dependencies in a PEP 723 header,
+resolved by `uv run`; the pins match the flake's nixpkgs so both paths
+produce identical textures.

@@ -20,13 +20,13 @@
 #      generate textures (gen-wheel.py + png-to-pcx.py) into
 #      DXController/Textures/ for the #exec imports in DXControllerTextures.uc
 #   4. delete DeusEx.u; `echo n | UCC.exe make`. UCC prompts to overwrite
-#      DeusEx/Inc/DeusExClasses.h; we answer 'n'. UCC subsequently GPFs
+#      DeusEx/Inc/DeusExClasses.h; we answer 'n'. UCC subsequently crashes
 #      while loading the freshly-rebuilt DeusEx.u (the load happens before
 #      DXController compiles). DeusEx.u is written before the crash.
 #      `|| true` swallows the exit code; the `-f` check is the real
 #      success signal.
 #   5. delete DXController.u; fresh `UCC.exe make`. DeusEx.u exists
-#      (no rebuild, no GPF), then DXController.u is built against it.
+#      (no rebuild, no crash), then DXController.u is built against it.
 #
 # Requires `unix2dos` (from the dos2unix package) on PATH — run under
 # `nix develop`, which provides it, or install dos2unix.
@@ -126,6 +126,7 @@ else
     python3 "$REPO_DIR/assets/png-to-pcx.py" "$REPO_DIR/assets/XboxSeries" "$TEXDIR" --size 64     --mode masked
     python3 "$REPO_DIR/assets/png-to-pcx.py" "$WHEELSRC"         "$TEXDIR" --size 1024   --mode masked --key black
     python3 "$REPO_DIR/assets/png-to-pcx.py" "$WHEELSRC/wedges"  "$TEXDIR" --size 1024   --mode grey
+    python3 "$REPO_DIR/assets/png-to-pcx.py" "$WHEELSRC/veil"    "$TEXDIR" --size 1024   --mode grey
     # Menu-bg tiles are 256x256 PNGs (controller + autosave page sets);
     # preserve native dims so png-to-pcx doesn't square-resize them against
     # the default --size 64.
@@ -167,12 +168,16 @@ MSBUILD="$("$REPO_DIR/launcher/find-msbuild.sh")"
 if (( DRY_RUN )); then
     echo "sync-and-build: (dry-run) would fetch SDL3 via $REPO_DIR/launcher/fetch-sdl3.sh"
     echo "sync-and-build: (dry-run) would run msbuild via $MSBUILD"
+    echo "sync-and-build: (dry-run) would run $REPO_DIR/launcher/tests/Release/tests.exe"
     echo "sync-and-build: (dry-run) would install DeusEx.exe + DeusEx.pdb + SDL3.dll to $BUILD_DIR/System/"
 else
     "$REPO_DIR/launcher/fetch-sdl3.sh"
     "$MSBUILD" "$(wslpath -w "$REPO_DIR/launcher/launcher.sln")" \
         -p:Configuration=Release -p:Platform=Win32 \
         -m -verbosity:minimal -nologo
+    # The solution build compiles tests.vcxproj but msbuild does not run it.
+    # Before the install, so a red test can't leave a fresh .exe in the game dir.
+    "$REPO_DIR/launcher/tests/Release/tests.exe"
     cp "$REPO_DIR/launcher/Release/DeusEx.exe" "$BUILD_DIR/System/DeusEx.exe"
     cp "$REPO_DIR/launcher/Release/DeusEx.pdb" "$BUILD_DIR/System/DeusEx.pdb"
     cp "$REPO_DIR/launcher/external/SDL3/lib/x86/SDL3.dll" "$BUILD_DIR/System/SDL3.dll"
@@ -186,9 +191,10 @@ fi
 
 cd "$BUILD_DIR/System"
 
-# Pass 1: rebuild DeusEx.u (tolerate the GPF; verify .u landed).
+# Pass 1: rebuild DeusEx.u (tolerate the crash; verify .u landed).
 rm -f "$BUILD_DIR/System/DeusEx.u"
 cmd.exe /c "echo n | UCC.exe make" || true
+echo "sync-and-build: the UCC error above is expected: a stock game bug makes UCC crash after writing DeusEx.u"
 if [[ ! -f "$BUILD_DIR/System/DeusEx.u" ]]; then
     echo "sync-and-build: DeusEx.u was not produced" >&2
     exit 1
