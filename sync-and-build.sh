@@ -209,4 +209,11 @@ if [[ ! -f "$BUILD_DIR/System/DXController.u" ]]; then
     exit 1
 fi
 
+# Pass 3: produce the French-patch-named copy for deployment. The FR
+# translation patch expects DeusEx.frt_u instead of DeusEx.u; keep the
+# original DeusEx.u in place too since Pass 2 (and any future re-run)
+# still needs it under its real name.
+cp "$BUILD_DIR/System/DeusEx.u" "$BUILD_DIR/System/DeusEx.frt_u"
+echo "sync-and-build: DeusEx.frt_u ready for deployment"
+
 echo "sync-and-build: ok"
