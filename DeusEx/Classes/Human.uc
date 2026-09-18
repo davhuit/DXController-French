@@ -132,6 +132,7 @@ function TweenToRunning(float tweentime)
 
 function PlayRunning()
 {
+
 	// === DXController additions: BEGIN ===
 	if (GamepadStickMag > 0.0)
 	{
@@ -139,6 +140,8 @@ function PlayRunning()
 		humanAnimRate = FClamp(humanAnimRate, 0.50, 2.0);
 	}
 	// === DXController additions: END ===
+
+
 
 //	ClientMessage("PlayRunning()");
 	if (IsFiring())
@@ -420,21 +423,23 @@ simulated function PreBeginPlay()
 	}
 }
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     mpGroundSpeed=230.000000
-     mpWaterSpeed=110.000000
-     humanAnimRate=1.000000
-     bIsHuman=True
-     WaterSpeed=300.000000
-     AirSpeed=4000.000000
-     AccelRate=1000.000000
-     JumpZ=300.000000
-     BaseEyeHeight=40.000000
-     UnderWaterTime=20.000000
-     CollisionRadius=20.000000
-     CollisionHeight=47.500000
-     Mass=150.000000
-     Buoyancy=155.000000
-     RotationRate=(Pitch=4096,Yaw=50000,Roll=3072)
+    mpGroundSpeed=230.0000000
+    mpWaterSpeed=110.0000000
+    humanAnimRate=1.0000000
+    bIsHuman=true
+    WaterSpeed=300.0000000
+    AirSpeed=4000.0000000
+    AccelRate=1000.0000000
+    JumpZ=300.0000000
+    BaseEyeHeight=40.0000000
+    UnderWaterTime=20.0000000
+    CollisionRadius=20.0000000
+    CollisionHeight=47.5000000
+    Mass=150.0000000
+    Buoyancy=155.0000000
+    RotationRate=(Pitch=4096,Yaw=50000,Roll=3072)
 }

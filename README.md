@@ -1,22 +1,16 @@
-# Gamepad support for Deus Ex (2000)
+# DXController-French
 
-DXController is a mod that implements broad gamepad support for the
-original *Deus Ex* (2000, GOTY edition), covering Xbox, PlayStation,
-Switch, and other SDL-recognized controllers. The game should feel as if
-it was designed to be played with a controller, with context-dependent
-controls and new UI elements. Gameplay is fully vanilla.
+*[English version](README.en.md)*
 
-DXController adds much better controller feel, a weapon and augmentation
-equipping wheel, an on-screen keyboard for terminals, and complete controller
-navigation for every menu, conversation, and in-world device (keypads,
-ATMs, computers, security terminals), so the game is playable end to
-end without a mouse or keyboard.
+Version compatible FR de [DXController](https://github.com/dsgls/DXController), le mod
+manette Xbox pour *Deus Ex* original (2000, édition GOTY).
 
-All development of this mod has been done with an Xbox One controller. It
-should work with every other controller supported by SDL (which is basically
-all of them), but all the on-screen button hints use Xbox controller icons.
+## Le problème résolu
 
-[Trigger warning: LLM assisted with parts of this project](#llm-usage-in-this-project)
+DXController s'appuie sur une version modifiée de `DeusEx.u`. Le patch de traduction
+française officiel fournit son propre `DeusEx.frt_u` (mécanisme de localisation par langue
+d'Unreal Engine 1), compilé à partir du `DeusEx.u` d'origine, non modifié. Les deux sont
+incompatibles : avec les deux installés, le jeu refuse de se lancer avec une erreur du type
 
 ## Requirements
 
@@ -199,81 +193,45 @@ touchpad=Joy4
 guide=None
 ```
 
-The left side is one of SDL's button names: `a b x y back guide start
-leftstick rightstick leftshoulder rightshoulder dpup dpdown dpleft
-dpright misc1 paddle1 paddle2 paddle3 paddle4 touchpad misc2 misc3
-misc4 misc5 misc6`. The right side is an engine key name (without the
-`IK_` prefix) — the same names usable in `[Extension.InputExt]`
-bindings, including `UnknownXX` slots — or `None` to unmap. Above:
-`misc2` gets bound to a spare slot, `y` and `touchpad` swap their
-default slots, and `guide` is explicitly unmapped.
+parce que le `DeusEx.frt_u` français ne connaît pas les propriétés supplémentaires ajoutées
+par DXController dans plusieurs classes.
 
-Two buttons can't share a destination slot. Remapping a button onto a
-slot another button already holds (by default or by an earlier line)
-needs the displaced button remapped too — the two-line swap above is
-the idiom — or set to `None`; otherwise the remap is rejected and
-logged, and the button falls back to its default slot. A button moved
-outside the `Joy1..16` range (e.g. onto `UnknownD8`) still works as a
-binding but won't register as gamepad activity for cursor-mode
-switching.
+Ce dépôt fournit un `DeusEx.frt_u` qui contient à la fois le texte français **et** les
+ajouts de DXController, pour pouvoir utiliser le mod manette et la traduction française
+officielle ensemble.
 
 #### `[DXController.GamepadAxisMap]` — extra analog sources
 
-```ini
-[DXController.GamepadAxisMap]
-gyro.yaw=UnknownEA Scale=120 Deadzone=0.02
-gyro.pitch=UnknownEB Scale=120 Deadzone=0.02
-touchpad.x=UnknownDF
-joyaxis.6=UnknownD8 Deadzone=0.1
-```
+Récupérez la dernière [release](../../releases) : elle contient les fichiers déjà
+compilés (`DeusEx.frt_u`, `DXController.u`, `DeusEx.frt_u`, `DeusEx.exe`, `SDL3.dll`), prêts à
+copier dans le jeu.
 
-Sources: `gyro.pitch|yaw|roll` (rad/s), `accel.x|y|z` (m/s²),
-`touchpad.x|y` (`-1..1` while the pad is touched), and `joyaxis.N`
-(the underlying joystick's Nth raw axis, normalized `-1..1`). The
-right side is an engine key name as above, followed by optional
-`Scale=` (default 1000) and `Deadzone=` (default 0, in the source's
-own units). Bind the resulting axis in `[Extension.InputExt]`, e.g.
-`UnknownEA=Axis aExtra0 Speed=1`.
+## Prérequis
 
-**`gyro.*` and `accel.*` entries need an explicit `Scale`** — their
-natural units (rad/s, m/s²) are far below 1, so without one the axis
-never leaves the deadzone. **A `joyaxis.N` entry needs a `Deadzone`
-if that axis doesn't rest at zero** — some sticks report a non-zero
-floor at rest, and without a deadzone the axis reads as permanently
-active, which pins the controller as the active input source and
-keeps the mouse cursor from reappearing.
+- *Deus Ex: Game of the Year Edition* (version GOG ou Steam standard)
+- [Le patch de traduction française officiel](https://www.dxm.be/navigator.php5?lang=fr&content=201), installé
 
-Free engine-key slots for these maps: `UnknownD8`, `UnknownD9`,
-`UnknownDA`, `UnknownDF`, `UnknownEA`, `UnknownEB`, `UnknownF4`,
-`UnknownF5`, `UnknownA4`-`UnknownB9`, and `UnknownC1`-`UnknownC7`.
+## Installation
 
-Axis-map slots aren't visible to the mod's own cursor-mode and
-menu-navigation logic (only `JoyX/Y/U/V` and the `Joy1..16`/D-pad
-range are) — they drive bindings only, not menu/UI input.
+1. Installez le jeu, puis le patch de traduction française officiel, comme d'habitude.
+2. Extraire l'archive ZIP dans le dossier System du jeu, en écrasant les fichiers existants du même nom.
 
 #### Xbox Elite paddle troubleshooting
 
-Stock SDL (the controller library the launcher uses) cannot see Elite
-paddle presses on Windows — this is an SDL/Windows limitation, not
-something DXController can fix. Remap the paddles to standard buttons
-using Microsoft's Xbox Accessories app, or use Steam Input (which
-presents the pad to the game as a virtual Xbox controller with paddle
-presses arriving as ordinary buttons). Paddles on DualSense Edge,
-8BitDo, Flydigi, and similar pads work natively with no workaround.
+9 classes touchées par DXController ont été fusionnées avec le texte français
+(ComputerScreenSecurity, ComputerUIWindow, ConWindowActive, DeusExPlayer, DeusExRootWindow,
+Human, MenuScreenLoadGame, MenuSettings, PersonaScreenSkills) ; voir les sources pour le
+détail.
 
-The pre-game launcher and "FixApp" dialogs use the same SDL gamepad
-support as the game, so any supported controller can navigate them.
+## Développement
 
 ### Unrecognized controllers and SDL3 updates
 
-If your controller isn't recognized, drop a
-[`gamecontrollerdb.txt`](https://github.com/mdqinc/SDL_GameControllerDB)
-next to `DeusEx.exe`; the launcher loads it automatically if present.
+## Crédits
 
-`SDL3.dll` can be swapped for a newer official x86 build (from
-[libsdl.org](https://github.com/libsdl-org/SDL/releases)) to pick up
-controller-support updates without waiting for a new DXController
-release.
+Tout le mérite du mod manette revient à
+[dsgls/DXController](https://github.com/dsgls/DXController). Ce dépôt ne fait qu'ajouter la
+compatibilité avec la traduction française par-dessus.
 
 ## Development
 

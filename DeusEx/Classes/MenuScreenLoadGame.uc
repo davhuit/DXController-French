@@ -453,7 +453,7 @@ function AddSaveRow(DeusExSaveInfo saveInfo, int saveIndex)
 	{
 		lstGames.AddRow( saveInfo.Description              $ ";" $ 
 						 BuildTimeStringFromInfo(saveInfo) $ ";" $ 
-						 BuildTimeSortKey(saveInfo)        $ ";" $
+						 BuildTimeSortKey(saveInfo)        $ ";" $ 
 						 BuildTimeStringFromInfo(saveInfo) $ ";" $
 						 String(saveInfo.DirectoryIndex));
 	}
@@ -725,12 +725,24 @@ function String TwoDigits(int number)
 
 function String BuildTimeSortKey(DeusExSaveInfo saveInfo)
 {
+	
+	
+	
 	if ( saveInfo == None )
 		return "0";
 
-	return String(saveInfo.Year)   $ TwoDigits(saveInfo.Month)  $
-	       TwoDigits(saveInfo.Day) $ TwoDigits(saveInfo.Hour)   $
-	       TwoDigits(saveInfo.Minute) $ TwoDigits(saveInfo.Second);
+
+
+
+
+
+
+		return String(saveInfo.Year)   $ TwoDigits(saveInfo.Month)  $
+			   TwoDigits(saveInfo.Day) $ TwoDigits(saveInfo.Hour)   $
+			   TwoDigits(saveInfo.Minute) $ TwoDigits(saveInfo.Second);
+
+
+
 }
 
 // ----------------------------------------------------------------------
@@ -773,43 +785,45 @@ function UpdateFreeDiskSpace()
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     bDateSortOrder=True
-     minFreeDiskSpace=100
-     strHeaderNameLabel="Name"
-     strHeaderDateLabel="Date"
-     NewSaveGameButtonText="New Save Game"
-     DeleteGameButtonText="Delete Game"
-     LoadGameButtonText="Load Game"
-     OverwriteTitle="Overwrite Savegame?"
-     OverwritePrompt="Are you sure you wish to overwrite this savegame?"
-     DeleteTitle="Delete Savegame?"
-     DeletePrompt="Are you sure you wish to delete this savegame?"
-     LoadGameTitle="Load Game"
-     SaveGameTitle="Save Game"
-     SaveInfoMissing_Label="SAVEINFO.DXS Missing!!!"
-     TimeAMLabel="am"
-     TimePMLabel="pm"
-     LocationLabel="Location: %s|n"
-     SaveCountLabel="Save Count: %d|n"
-     PlayTimeLabel="Play Time: %s|n"
-     FileSizeLabel="File Size: %dMB"
-     FreeSpaceLabel="Free Space: %dMB"
-     ConfirmDeleteLabel="Confirm Savegame Deletion"
-     CheatsEnabledLabel="- CHEATS ENABLED -"
-     actionButtons(0)=(Align=HALIGN_Right,Action=AB_Cancel)
-     actionButtons(1)=(Align=HALIGN_Right,Action=AB_Other,Text="|&Load Game",Key="LOAD")
-     actionButtons(2)=(Action=AB_Other,Text="|&Delete Game",Key="DELETE")
-     Title="Load Game"
-     ClientWidth=552
-     ClientHeight=296
-     clientTextures(0)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_1'
-     clientTextures(1)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_2'
-     clientTextures(2)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_3'
-     clientTextures(3)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_4'
-     clientTextures(4)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_5'
-     clientTextures(5)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_6'
-     bUsesHelpWindow=False
-     bEscapeSavesSettings=False
+    bDateSortOrder=true
+    minFreeDiskSpace=100
+    strHeaderNameLabel="Name"
+    strHeaderDateLabel="Date"
+    NewSaveGameButtonText="New Save Game"
+    DeleteGameButtonText="Delete Game"
+    LoadGameButtonText="Load Game"
+    OverwriteTitle="Overwrite Savegame?"
+    OverwritePrompt="Are you sure you wish to overwrite this savegame?"
+    DeleteTitle="Delete Savegame?"
+    DeletePrompt="Are you sure you wish to delete this savegame?"
+    LoadGameTitle="Load Game"
+    SaveGameTitle="Save Game"
+    SaveInfoMissing_Label="SAVEINFO.DXS Missing!!!"
+    TimeAMLabel="am"
+    TimePMLabel="pm"
+    LocationLabel="Location: %s|n"
+    SaveCountLabel="Save Count: %d|n"
+    PlayTimeLabel="Play Time: %s|n"
+    FileSizeLabel="File Size: %dMB"
+    FreeSpaceLabel="Free Space: %dMB"
+    ConfirmDeleteLabel="Confirm Savegame Deletion"
+    CheatsEnabledLabel="- CHEATS ENABLED -"
+    actionButtons(0)=(Align=HALIGN_Right,Action=AB_Cancel)
+    actionButtons(1)=(Align=HALIGN_Right,Action=AB_Other,Text="|&Load Game",Key="LOAD")
+    actionButtons(2)=(Action=AB_Other,Text="|&Delete Game",Key="DELETE")
+    Title="Load Game"
+    ClientWidth=552
+    ClientHeight=296
+    clientTextures(0)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_1'
+    clientTextures(1)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_2'
+    clientTextures(2)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_3'
+    clientTextures(3)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_4'
+    clientTextures(4)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_5'
+    clientTextures(5)=Texture'DeusExUI.UserInterface.MenuLoadSaveBackground_6'
+    bUsesHelpWindow=false
+    bEscapeSavesSettings=false
 }

@@ -809,40 +809,42 @@ function GamepadZoom(float dFov)
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     choices(0)=Class'DeusEx.ComputerSecurityChoice_Camera'
-     choices(1)=Class'DeusEx.ComputerSecurityChoice_DoorAccess'
-     choices(2)=Class'DeusEx.ComputerSecurityChoice_DoorOpen'
-     choices(3)=Class'DeusEx.ComputerSecurityChoice_Turret'
-     choiceStartX=13
-     choiceStartY=30
-     choiceVerticalGap=34
-     choiceActionButtonWidth=143
-     doorTimerID=-1
-     networkTimerID=-1
-     panSize=256
-     zoomSize=2.000000
-     numPanTicks=9
-     lowPanValue=1.000000
-     highPanValue=5.000000
-     ActiveWindowOptionsHeader="Active Window Options"
-     CameraOptionsHeader="Camera Options"
-     PanZoomSpeedHeader="Pan/Zoom Speed"
-     ClickCameraWindowText="Click on a camera view to select that camera."
-     escapeAction="LOGOUT"
-     Title="Surveillance"
-     ClientWidth=622
-     ClientHeight=435
-     clientTextures(0)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_1'
-     clientTextures(1)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_2'
-     clientTextures(2)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_3'
-     clientTextures(3)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_4'
-     clientTextures(4)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_5'
-     clientTextures(5)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_6'
-     textureRows=2
-     textureCols=3
-     bUsesStatusWindow=False
-     bAlwaysCenter=True
-     ComputerNodeFunctionLabel="Security"
+    choices(0)=Class'DeusEx.ComputerSecurityChoice_Camera'
+    choices(1)=Class'DeusEx.ComputerSecurityChoice_DoorAccess'
+    choices(2)=Class'DeusEx.ComputerSecurityChoice_DoorOpen'
+    choices(3)=Class'DeusEx.ComputerSecurityChoice_Turret'
+    choiceStartX=13
+    choiceStartY=30
+    choiceVerticalGap=34
+    choiceActionButtonWidth=143
+    doorTimerID=-1
+    networkTimerID=-1
+    panSize=256
+    zoomSize=2.0000000
+    numPanTicks=9
+    lowPanValue=1.0000000
+    highPanValue=5.0000000
+    ActiveWindowOptionsHeader="Active Window Options"
+    CameraOptionsHeader="Camera Options"
+    PanZoomSpeedHeader="Pan/Zoom Speed"
+    ClickCameraWindowText="Click on a camera view to select that camera."
+    escapeAction="LOGOUT"
+    Title="Surveillance"
+    ClientWidth=622
+    ClientHeight=435
+    clientTextures(0)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_1'
+    clientTextures(1)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_2'
+    clientTextures(2)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_3'
+    clientTextures(3)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_4'
+    clientTextures(4)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_5'
+    clientTextures(5)=Texture'DeusExUI.UserInterface.ComputerSecurityBackground_6'
+    textureRows=2
+    textureCols=3
+    bUsesStatusWindow=false
+    bAlwaysCenter=true
+    ComputerNodeFunctionLabel="Security"
 }

@@ -24,6 +24,9 @@
       <ForceConformanceInForLoopScope>false</ForceConformanceInForLoopScope>
       <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>../games/DeusEx/engine/inc;../games/DeusEx/core/inc;../games/DeusEx/window/inc;../games/DeusEx/deusex/inc;../games/DeusEx/extension/inc;../detours;../external/SDL3/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
     <Link>
       <AdditionalDependencies>uxtheme.lib;Shlwapi.lib;Comctl32.lib;SDL3.lib;delayimp.lib;../games/DeusEx/engine/lib/engine.lib;../games/DeusEx/core/lib/core.lib;../games/DeusEx/extension/lib/extension.lib;../games/DeusEx/window/lib/window.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>../external/SDL3/lib/x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

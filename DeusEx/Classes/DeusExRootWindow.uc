@@ -160,7 +160,6 @@ event bool VirtualKeyPressed(EInputKey key, bool bRepeat)
 				$ " ctrl=" $ IsKeyDown(IK_Ctrl));
 		return False;
 	}
-
 	// When player dies in multiplayer...
 	if ((Player != None) && (Player.Health <= 0) && (Player.Level.NetMode != NM_Standalone))
 	{

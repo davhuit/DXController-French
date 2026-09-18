@@ -319,7 +319,7 @@ function AddButton( ConChoiceWindow newButton )
 	// select a choice.
 	if (!root.IsGamepadCursorMode())               // DXController gate
 		root.ShowCursor(True);
-
+		
 	// Add to our button array
 	conChoices[numChoices++] = newButton;
 }
@@ -478,12 +478,6 @@ event bool VirtualKeyPressed(EInputKey key, bool bRepeat)
 					conPlay.PlayNextEvent();
 				break;
 
-			// Let Up and Down arrows through for choices
-			case IK_Up:
-			case IK_Down:
-				bHandled = False;
-				break;
-
 			// DXController: bubble all other keys (notably gamepad slots
 			// IK_Joy1..16 / IK_JoyPov*) up to root so
 			// ControllerRootWindow.VirtualKeyPressed can route them to
@@ -574,13 +568,15 @@ function SetForcePlay(bool bNewForcePlay)
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 
+
+// Decompiled with UE Explorer.
 defaultproperties
 {
-     colConTextFocus=(R=255,G=255)
-     colConTextChoice=(B=255)
-     colConTextSkill=(R=255)
-     lowerFinalHeightPercent=0.210000
-     upperFinalHeightPercent=0.104000
-     movePeriod=0.600000
-     conTexture=Texture'DeusExUI.UserInterface.ConWindowActiveBackground'
+    colConTextFocus=(R=255,G=255,B=0,A=0)
+    colConTextChoice=(R=0,G=0,B=255,A=0)
+    colConTextSkill=(R=255,G=0,B=0,A=0)
+    lowerFinalHeightPercent=0.2100000
+    upperFinalHeightPercent=0.1040000
+    movePeriod=0.6000000
+    conTexture=Texture'DeusExUI.UserInterface.ConWindowActiveBackground'
 }
