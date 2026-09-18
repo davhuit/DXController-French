@@ -210,8 +210,8 @@ if [[ ! -f "$BUILD_DIR/System/DXController.u" ]]; then
 fi
 
 # Pass 3: produce the French-patch-named copy for deployment. The FR
-# translation patch expects DeusEx.frt_u instead of DeusEx.u so we rename
-# it with the excepted name.
+# translation patch expects DeusEx.frt_u instead of DeusEx.u
+# so we rename DeusEx.u t with the expected name (DeusEx.frt_u).
 mv "$BUILD_DIR/System/DeusEx.u" "$BUILD_DIR/System/DeusEx.frt_u"
 
 echo "sync-and-build: ok"
